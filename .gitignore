@@ -2,5 +2,4 @@ rag.db
 config.yaml
 /testdata/
 /rag_test/
-/.uploads/
 /.idea/
