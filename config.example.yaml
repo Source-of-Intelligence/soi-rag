@@ -1,0 +1,48 @@
+# RAG 工具配置文件示例
+# 复制此文件为 rag.yaml 并根据需要修改
+
+# RAG 引擎配置
+engine:
+  chunk_size: 512          # 文档分块大小（字符数）
+  chunk_overlap: 50        # 分块重叠大小
+  chunk_strategy: recursive # 分块策略: fixed, recursive, semantic
+  top_k: 10                # 检索返回的文档数量
+  use_reranker: false      # 是否使用重排序
+  use_hybrid: true         # 是否使用混合检索
+  use_dedup: true          # 是否启用去重
+  hybrid_strategies:       # 混合检索策略
+    - vector
+    - keyword
+
+# LLM 配置（用于生成回答）
+llm:
+  provider: mock           # 提供商: openai, ollama, mock
+  model: gpt-4             # 模型名称
+  api_key: $OPENAI_API_KEY # API密钥，支持环境变量 $VAR 或 ${VAR}
+  api_url: ""              # 自定义API地址（可选）
+  temperature: 0.7         # 生成温度
+  max_tokens: 2048         # 最大生成token数
+
+# 存储配置
+storage:
+  type: sqlite             # 存储类型: memory, sqlite, postgres
+  
+  # SQLite 配置（type=sqlite时使用）
+  sqlite:
+    path: rag.db           # 数据库文件路径
+  
+  # PostgreSQL 配置（type=postgres时使用）
+  postgres:
+    host: localhost
+    port: 5432
+    dbname: ragdb
+    user: postgres
+    password: $PG_PASSWORD # 支持环境变量
+    ssl_mode: disable      # disable, require, verify-ca, verify-full
+    max_open: 10           # 最大连接数
+    max_idle: 5            # 最大空闲连接数
+
+# HTTP API 配置
+api:
+  host: 0.0.0.0            # 监听地址
+  port: 8080               # 监听端口
