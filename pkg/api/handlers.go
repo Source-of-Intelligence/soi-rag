@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/rag"
 	"github.com/google/uuid"
-	"github.com/ragtool/rag/pkg/models"
-	"github.com/ragtool/rag/pkg/rag"
 )
 
 // API 请求超时常量
