@@ -18,7 +18,7 @@ PageIndex模块负责文档的解析、分块、索引和检索，是RAG系统�
 │         │                 │                 │               │
 │         ▼                 ▼                 ▼               │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │              Document Store (PostgreSQL)              │   │
+│  │              Document Store (SQLite/PostgreSQL)     │   │
 │  │  - documents: 文档元数据                              │   │
 │  │  - chunks: 文档分块                                   │   │
 │  │  - index_metadata: 索引元数据                         │   │
@@ -97,15 +97,15 @@ type SemanticChunker struct {
 
 ### 1.5 支持的文档格式
 
-| 格式 | MIME类型 | 解析器 |
-|------|----------|--------|
-| PDF | application/pdf | pdfplumber / PyMuPDF |
-| Word | application/vnd.openxmlformats-officedocument.wordprocessingml.document | python-docx |
-| Markdown | text/markdown | 原生解析 |
-| HTML | text/html | goquery / BeautifulSoup |
-| TXT | text/plain | 原生解析 |
-| CSV | text/csv | 原生解析 |
-| JSON | application/json | 原生解析 |
+| 格式 | MIME类型 | 解析器 | 实现方式 |
+|------|----------|--------|----------|
+| PDF | application/pdf | PDFParser | `github.com/ledongthuc/pdf`（纯 Go） |
+| Word | application/vnd.openxmlformats-officedocument.wordprocessingml.document | WordParser | `github.com/nguyenthenguyen/docx`（纯 Go） |
+| Markdown | text/markdown | TextParser | 原生解析 |
+| HTML | text/html | TextParser | 原生解析 |
+| TXT | text/plain | TextParser | 原生解析 |
+| CSV | text/csv | TextParser | 原生解析 |
+| JSON | application/json | TextParser | 原生解析 |
 
 ### 1.6 API接口
 
@@ -155,7 +155,7 @@ type PageIndex interface {
 │         │                 │                 │               │
 │         ▼                 ▼                 ▼               │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │              Graph Store (Neo4j)                      │   │
+│  │              Graph Store (SQLite/PostgreSQL)         │   │
 │  │  - Node: 实体 (Entity)                                │   │
 │  │  - Edge: 关系 (Relation)                              │   │
 │  └──────────────────────────────────────────────────────┘   │
@@ -320,9 +320,9 @@ type KnowledgeGraph interface {
 │         │                 │                 │               │
 │         ▼                 ▼                 ▼               │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │              Vector Database (Milvus/Chroma)          │   │
+│  │              Vector Store (HNSW/SQLite/PG)           │   │
 │  │  - Collection: 向量集合                                │   │
-│  │  - Index: HNSW/IVF_FLAT                               │   │
+│  │  - Index: HNSW 内存索引                                │   │
 │  │  - Metadata: 关联文档信息                              │   │
 │  └──────────────────────────────────────────────────────┘   │
 │                              │                              │
@@ -452,7 +452,7 @@ type VectorRetriever interface {
 │         │                 │                 │               │
 │         ▼                 ▼                 ▼               │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │           Search Engine (Elasticsearch/Bleve)         │   │
+│  │           Search Engine (内存倒排/FTS5/tsvector)     │   │
 │  │  - Inverted Index: 倒排索引                            │   │
 │  │  - BM25: 评分算法                                     │   │
 │  │  - Boolean Query: 布尔查询                            │   │
@@ -643,12 +643,18 @@ type HybridOptions struct {
 
 ### 6.2 重排序策略
 
-#### 6.2.1 交叉编码器
+#### 6.2.1 交叉编码器（启发式简化版）
+
+> **注意**: `CrossEncoderReranker` 为启发式简化实现，非真正的交叉编码器模型。
+> 基于查询词匹配度的重排序，无需外部模型依赖。适用于轻量级场景。
+> 如需更强的重排序效果，建议使用 `LLMReranker` 或集成专门的交叉编码器模型（如 cross-encoder/ms-marco）。
+
 ```go
 type CrossEncoderReranker struct {
     ModelName string
     Model     *CrossEncoder
 }
+```
 
 func (r *CrossEncoderReranker) Rerank(ctx context.Context, query string, candidates []*Candidate) ([]*Candidate, error) {
     pairs := make([][2]string, len(candidates))

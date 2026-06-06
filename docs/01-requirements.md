@@ -85,30 +85,31 @@
 ## 4. 技术选型
 
 ### 4.1 编程语言
-- Go（核心引擎，高性能）
-- Python（模型推理，NLP处理）
+- Go（核心引擎，高性能，全部实现）
 
 ### 4.2 存储系统
-- PostgreSQL（元数据、结构化数据）
-- Redis（缓存、消息队列）
-- Elasticsearch（关键词检索）
-- Milvus/Chroma（向量存储）
-- Neo4j（知识图谱）
+- SQLite（默认存储，零外部依赖）
+- PostgreSQL（可选存储，支持 pgvector）
+- Memory（开发/测试用内存存储）
 
 ### 4.3 嵌入模型
-- OpenAI text-embedding-3系列
-- BGE-M3（多语言）
-- E5系列
-- GTE系列
+- OpenAI text-embedding-3 系列（通过 API）
+- Ollama 本地模型（如 qwen2.5、nomic-embed-text 等）
+- MockEmbedder（开发/测试用）
 
-### 4.4 部署
-- Docker容器化
-- Kubernetes编排
-- REST API + gRPC
+### 4.4 LLM 服务
+- OpenAI API（GPT-4o、GPT-4o-mini 等）
+- Ollama 本地服务（qwen2.5:9b 等）
+- MockLLM（开发/测试用）
+
+### 4.5 部署
+- 单机二进制部署
+- Docker 容器化
+- Docker Compose（PostgreSQL 模式）
 
 ---
 
-## 实现状态更新（2026-05-31）
+## 实现状态更新（2026-06-07）
 
 ### 已完成
 

@@ -11,18 +11,18 @@
 │                                                                                 │
 │  ┌─────────────────────────────────────────────────────────────────────────┐   │
 │  │                         API Gateway Layer                                │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │   │
-│  │  │  REST API   │  │   gRPC      │  │   CLI       │  │   SDK       │    │   │
-│  │  │   (HTTP)    │  │  (Protobuf) │  │ (Command)   │  │  (Go/Python)│    │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘    │   │
+│  │  ┌─────────────┐  ┌─────────────────────────────────────────────┐     │   │
+│  │  │  REST API   │  │   SSE Streaming (流式问答)                   │     │   │
+│  │  │   (HTTP)    │  │                                             │     │   │
+│  │  └─────────────┘  └─────────────────────────────────────────────┘     │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 │                                    │                                            │
 │                                    ▼                                            │
 │  ┌─────────────────────────────────────────────────────────────────────────┐   │
 │  │                        Service Orchestration Layer                       │   │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │   │
-│  │  │   Query     │  │   Result    │  │   Cache     │  │   Rate      │    │   │
-│  │  │  Processor  │  │   Merger    │  │   Manager   │  │   Limiter   │    │   │
+│  │  │   Query     │  │   Result    │  │   Cache     │  │   Dedup     │    │   │
+│  │  │  Processor  │  │   Merger    │  │   Manager   │  │   Service   │    │   │
 │  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘    │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 │                                    │                                            │
@@ -33,31 +33,37 @@
 │  │  │   PageIndex     │ │  Knowledge Graph │ │  Vector Search  │           │   │
 │  │  │   Module        │ │     Module       │ │     Module      │           │   │
 │  │  │                 │ │                  │ │                 │           │   │
-│  │  │ • Doc Parser    │ │ • NER/RE         │ │ • Embedding     │           │   │
+│  │  │ • Doc Parser    │ │ • LLM Extractor  │ │ • HNSW Index    │           │   │
 │  │  │ • Chunker       │ │ • Graph Builder  │ │ • ANN Search    │           │   │
-│  │  │ • Index Manager │ │ • Cypher Query   │ │ • Vector Store  │           │   │
+│  │  │ • Index Manager │ │ • Graph Query    │ │ • Embedder      │           │   │
 │  │  └─────────────────┘ └─────────────────┘ └─────────────────┘           │   │
 │  │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐           │   │
 │  │  │ Keyword Search  │ │ Hybrid Search   │ │    Reranker     │           │   │
 │  │  │     Module      │ │     Module      │ │     Module      │           │   │
 │  │  │                 │ │                 │ │                 │           │   │
-│  │  │ • BM25/TF-IDF   │ │ • Multi-Recall  │ │ • Cross-Encoder │           │   │
-│  │  │ • Inverted Index│ │ • RRF Fusion    │ │ • LLM Rerank    │           │   │
-│  │  │ • Query Parser  │ │ • Query Router  │ │ • Score Fusion  │           │   │
+│  │  │ • BM25 Scoring  │ │ • Multi-Recall  │ │ • Heuristic     │           │   │
+│  │  │ • Inverted Index│ │ • RRF Fusion    │ │ • Diversity     │           │   │
+│  │  │ • Query Parser  │ │ • Query Router  │ │ • Rerank Pipeline│          │   │
 │  │  └─────────────────┘ └─────────────────┘ └─────────────────┘           │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 │                                    │                                            │
 │                                    ▼                                            │
 │  ┌─────────────────────────────────────────────────────────────────────────┐   │
 │  │                         Storage Layer                                    │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │   │
-│  │  │ PostgreSQL  │  │    Redis    │  │ Elasticsearch│  │    Milvus   │    │   │
-│  │  │  (Metadata) │  │   (Cache)   │  │  (Keyword)  │  │   (Vector)  │    │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘    │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                      │   │
-│  │  │    Neo4j    │  │    MinIO    │  │    Etcd     │                      │   │
-│  │  │   (Graph)   │  │  (Object)   │  │  (Config)   │                      │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘                      │   │
+│  │  ┌───────────────────────┐  ┌───────────────────────┐                    │   │
+│  │  │   SQLite (默认)       │  │   PostgreSQL (可选)    │                    │   │
+│  │  │  • 文档和分块存储      │  │  • 文档和分块存储      │                    │   │
+│  │  │  • FTS5 全文检索       │  │  • tsvector 全文检索    │                    │   │
+│  │  │  • 向量 BLOB 存储      │  │  • pgvector 向量存储    │                    │   │
+│  │  │  • 知识图谱关系表      │  │  • 知识图谱关系表       │                    │   │
+│  │  │  • 去重索引            │  │  • 去重索引             │                    │   │
+│  │  └───────────────────────┘  └───────────────────────┘                    │   │
+│  │  ┌───────────────────────┐  ┌───────────────────────┐                    │   │
+│  │  │   Memory (开发/测试)   │  │   LRU Cache (内存)    │                    │   │
+│  │  │  • 内存向量存储(HNSW)  │  │  • 查询结果缓存         │                    │   │
+│  │  │  • 内存倒排索引        │  │  • TTL 过期策略        │                    │   │
+│  │  │  • 内存图谱存储        │  │                       │                    │   │
+│  │  └───────────────────────┘  └───────────────────────┘                    │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -67,10 +73,10 @@
 
 | 层级 | 职责 | 核心组件 |
 |------|------|----------|
-| API Gateway | 统一入口，协议转换 | REST API, gRPC, CLI, SDK |
-| Service Orchestration | 服务编排，流量控制 | Query Processor, Cache, Rate Limiter |
+| API Gateway | 统一入口，协议支持 | REST API (net/http), SSE 流式问答 |
+| Service Orchestration | 服务编排，查询处理 | Query Processor, Cache, Dedup Service |
 | Retrieval Engine | 检索能力实现 | 6大检索模块 |
-| Storage | 数据持久化 | 多种存储系统 |
+| Storage | 数据持久化 | SQLite（默认）/ PostgreSQL（可选）/ Memory（开发测试） |
 
 ---
 
@@ -108,10 +114,10 @@
    - 归一化处理
 
 4. **多路存储 (Store)**
-   - 向量存储 → Milvus/Chroma
-   - 关键词索引 → Elasticsearch
-   - 知识图谱 → Neo4j
-   - 元数据 → PostgreSQL
+   - 向量存储 → HNSW 内存索引 / SQLite BLOB / PostgreSQL pgvector
+   - 关键词索引 → 内存倒排索引 / SQLite FTS5 / PostgreSQL tsvector
+   - 知识图谱 → 内存图谱 / SQLite 关系表 / PostgreSQL 关系表
+   - 元数据 → Memory Store / SQLite / PostgreSQL
 
 ### 2.2 检索流程
 
@@ -181,10 +187,12 @@
 └─────────────────────────────────────────┘
 ```
 
-### 3.2 事件驱动架构
+### 3.2 事件驱动架构（规划中）
+
+> **注意**: 以下事件总线设计为未来规划，当前版本尚未实现。当前版本使用直接的函数调用模式。
 
 ```go
-// 定义核心事件
+// 定义核心事件（规划中）
 type EventType string
 
 const (
@@ -205,7 +213,7 @@ type Event struct {
     Source    string                 `json:"source"`
 }
 
-// 事件总线
+// 事件总线（规划中）
 type EventBus interface {
     Publish(ctx context.Context, event *Event) error
     Subscribe(eventType EventType, handler EventHandler) error
@@ -327,98 +335,99 @@ type PluginManager struct {
 ### 6.1 配置结构
 
 ```yaml
-# config.yaml
-server:
-  http:
-    host: "0.0.0.0"
-    port: 8080
-  grpc:
-    host: "0.0.0.0"
-    port: 9090
+# config.yaml - 实际配置格式
+engine:
+  chunk_size: 512
+  chunk_overlap: 50
+  chunk_strategy: "recursive"  # fixed, recursive, semantic
+  top_k: 10
+  use_reranker: false
+  use_hybrid: true
+  use_dedup: true
 
-retrieval:
-  # PageIndex配置
-  page_index:
-    chunk_size: 512
-    chunk_overlap: 50
-    chunk_strategy: "recursive"
-    supported_formats: ["pdf", "docx", "md", "html", "txt"]
-  
-  # 向量检索配置
-  vector:
-    model: "BAAI/bge-m3"
-    dimension: 1024
-    normalize: true
-    store_type: "milvus"
-    store_config:
-      host: "localhost"
-      port: 19530
-      collection: "rag_vectors"
-    index_type: "HNSW"
-    metric_type: "COSINE"
-  
-  # 关键词检索配置
-  keyword:
-    engine: "elasticsearch"
-    hosts: ["http://localhost:9200"]
-    index_name: "rag_keywords"
-    analyzer: "ik_max_word"
-    similarity: "BM25"
-  
-  # 知识图谱配置
-  knowledge_graph:
-    enabled: true
-    store_type: "neo4j"
-    uri: "bolt://localhost:7687"
-    username: "neo4j"
-    password: "password"
-    extraction_model: "gpt-4"
-  
-  # 混合检索配置
-  hybrid:
-    strategies: ["vector", "keyword", "graph"]
-    fusion_method: "rrf"
-    rrf_k: 60
-    weights:
-      vector: 0.4
-      keyword: 0.4
-      graph: 0.2
-  
-  # 重排序配置
-  rerank:
-    enabled: true
-    model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
-    top_k: 100
+# LLM 配置
+# provider 支持: openai, ollama, mock
+# api_key 支持环境变量引用: $OPENAI_API_KEY 或 ${OPENAI_API_KEY}
+llm:
+  provider: ollama
+  model: qwen2.5:9b
+  api_key: ""
+  api_url: "http://localhost:11434"
+  temperature: 0.7
+  max_tokens: 4096
 
+# 存储配置
+# type 支持: memory, sqlite, postgres
 storage:
-  postgresql:
-    host: "localhost"
+  type: sqlite
+  sqlite:
+    path: rag.db
+  postgres:
+    host: localhost
     port: 5432
-    database: "rag"
-    username: "postgres"
-    password: "password"
-  
-  redis:
-    host: "localhost"
-    port: 6379
-    db: 0
+    dbname: rag
+    user: postgres
     password: ""
+    ssl_mode: disable
+    max_open: 10
+    max_idle: 5
 
-logging:
-  level: "info"
-  format: "json"
-  output: "stdout"
+# HTTP API 配置
+api:
+  host: 0.0.0.0
+  port: 8080
 
-metrics:
-  enabled: true
-  port: 9091
+# 检索质量评估阈值（可选）
+threshold:
+  min_recall_at_1: 0.3
+  min_recall_at_5: 0.5
+  min_recall_at_10: 0.7
+  min_precision_at_5: 0.4
+  min_mrr: 0.4
+  min_ndcg_at_10: 0.5
+  min_map: 0.4
 ```
 
 ---
 
 ## 7. 部署架构
 
-### 7.1 Docker Compose部署
+### 7.1 单机部署（推荐）
+
+当前版本设计为轻量级单机部署，无需外部依赖：
+
+```bash
+# 使用 SQLite 存储（零依赖）
+./rag-server -config config.yaml
+
+# 使用 PostgreSQL 存储
+./rag-server -config config.yaml  # config.yaml 中 storage.type: postgres
+```
+
+**依赖说明：**
+
+| 存储类型 | 外部依赖 | 适用场景 |
+|----------|----------|----------|
+| memory | 无 | 开发、测试 |
+| sqlite | 无 | 单机生产、嵌入式 |
+| postgres | PostgreSQL | 多实例共享、大数据量 |
+
+### 7.2 Docker 部署（SQLite 模式）
+
+```dockerfile
+FROM golang:1.25-alpine AS builder
+WORKDIR /app
+COPY . .
+RUN go build -o rag-server ./cmd/rag-server
+
+FROM alpine:latest
+COPY --from=builder /app/rag-server /usr/local/bin/
+COPY config.yaml /app/config.yaml
+EXPOSE 8080
+CMD ["rag-server", "-config", "/app/config.yaml"]
+```
+
+### 7.3 Docker Compose 部署（PostgreSQL 模式）
 
 ```yaml
 # docker-compose.yml
@@ -429,59 +438,26 @@ services:
     build: .
     ports:
       - "8080:8080"
-      - "9090:9090"
     environment:
       - CONFIG_PATH=/app/config.yaml
     volumes:
       - ./config.yaml:/app/config.yaml
+      - rag-data:/app/data
     depends_on:
       - postgres
-      - redis
-      - elasticsearch
-      - milvus
-      - neo4j
 
   postgres:
     image: postgres:15
     environment:
       POSTGRES_DB: rag
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-
-  elasticsearch:
-    image: elasticsearch:8.11.0
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
-
-  milvus:
-    image: milvusdb/milvus:v2.3.3
-    command: ["milvus", "run", "standalone"]
-    volumes:
-      - milvus_data:/var/lib/milvus
-
-  neo4j:
-    image: neo4j:5.14
-    environment:
-      NEO4J_AUTH: neo4j/password
-    volumes:
-      - neo4j_data:/data
-
 volumes:
+  rag-data:
   postgres_data:
-  redis_data:
-  elasticsearch_data:
-  milvus_data:
-  neo4j_data:
 ```
 
 ### 7.2 Kubernetes部署
@@ -627,24 +603,29 @@ func (m *AuthMiddleware) Handle(next Handler) Handler {
 
 ### 10.1 缓存策略
 
+当前版本使用内存 LRU 缓存，支持 TTL 过期：
+
 ```go
-type CacheStrategy struct {
-    // 多级缓存
-    L1Cache *LocalCache      // 本地缓存 (LRU)
-    L2Cache *RedisCache      // 分布式缓存
-    
-    // 缓存配置
-    TTL          time.Duration
-    MaxSize      int
-    EvictionPolicy string
+// pkg/cache/cache.go
+type Cache interface {
+    Get(key string) (interface{}, bool)
+    Set(key string, value interface{})
+    SetWithTTL(key string, value interface{}, ttl time.Duration)
+    Delete(key string)
+    Clear()
+    Stats() Stats
 }
 
-// 查询缓存键生成
-func GenerateCacheKey(query string, opts SearchOptions) string {
-    hasher := sha256.New()
-    hasher.Write([]byte(query))
-    hasher.Write([]byte(fmt.Sprintf("%v", opts)))
-    return hex.EncodeToString(hasher.Sum(nil))
+type LRUCache struct { ... }
+func NewLRUCache(maxSize int, defaultTTL time.Duration) *LRUCache
+
+// 查询缓存键生成（使用 JSON 序列化确保唯一性）
+func (e *Engine) buildCacheKey(query string, opts SearchOptions) string {
+    h := sha256.New()
+    h.Write([]byte(query))
+    optsData, _ := json.Marshal(opts)
+    h.Write(optsData)
+    return hex.EncodeToString(h.Sum(nil))
 }
 ```
 
