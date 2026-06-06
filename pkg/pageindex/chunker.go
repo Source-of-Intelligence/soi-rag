@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/ragtool/rag/pkg/models"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 )
 
 // Chunker 分块器接口

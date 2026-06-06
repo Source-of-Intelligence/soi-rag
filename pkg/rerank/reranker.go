@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ragtool/rag/pkg/models"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 )
 
 // 重排序分数权重常量

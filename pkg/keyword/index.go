@@ -8,8 +8,8 @@ import (
 	"sync"
 	"unicode"
 
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 	"github.com/google/uuid"
-	"github.com/ragtool/rag/pkg/models"
 )
 
 // Tokenizer 分词器接口

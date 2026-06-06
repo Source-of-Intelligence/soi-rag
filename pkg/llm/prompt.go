@@ -7,7 +7,7 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/ragtool/rag/pkg/models"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 )
 
 // PromptTemplate RAG提示模板

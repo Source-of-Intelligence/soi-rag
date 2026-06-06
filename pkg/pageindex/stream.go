@@ -7,7 +7,7 @@ import (
 	"io"
 	"unicode/utf8"
 
-	"github.com/ragtool/rag/pkg/models"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 )
 
 // StreamReader 流式读取器接口，用于逐块读取大文件

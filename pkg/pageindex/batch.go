@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ragtool/rag/pkg/models"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 )
 
 // BatchResult 批量索引结果

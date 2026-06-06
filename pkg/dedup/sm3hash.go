@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/ragtool/rag/pkg/resource"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/resource"
 )
 
 // HashResult 哈希计算结果

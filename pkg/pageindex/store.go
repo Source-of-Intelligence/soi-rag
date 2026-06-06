@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 	"github.com/google/uuid"
-	"github.com/ragtool/rag/pkg/models"
 )
 
 // Store 文档存储接口

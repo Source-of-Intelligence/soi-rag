@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Source-of-Intelligence/soi-rag/pkg/rag"
 	"github.com/fsnotify/fsnotify"
-	"github.com/ragtool/rag/pkg/rag"
 )
 
 // FileEvent 文件事件类型

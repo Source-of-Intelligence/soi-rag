@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/ragtool/rag/pkg/models"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 )
 
 // DedupResult 去重检查结果

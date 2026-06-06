@@ -55,7 +55,7 @@
 ### 安装
 
 ```bash
-go get github.com/ragtool/rag
+go get github.com/Source-of-Intelligence/soi-rag
 ```
 
 ### 基本使用
@@ -68,7 +68,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/ragtool/rag/pkg/rag"
+    "github.com/Source-of-Intelligence/soi-rag/pkg/rag"
 )
 
 func main() {

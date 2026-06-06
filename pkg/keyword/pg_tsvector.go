@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ragtool/rag/pkg/models"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 )
 
 // PGTSVectorIndex 使用 PostgreSQL tsvector/tsquery 实现倒排索引

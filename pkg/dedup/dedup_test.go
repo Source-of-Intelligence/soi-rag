@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ragtool/rag/pkg/models"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 )
 
 func TestCalculateStringHash(t *testing.T) {

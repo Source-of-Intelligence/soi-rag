@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Source-of-Intelligence/soi-rag/pkg/llm"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 	"github.com/google/uuid"
-	"github.com/ragtool/rag/pkg/llm"
-	"github.com/ragtool/rag/pkg/models"
 )
 
 // LLMExtractor 基于LLM的实体和关系抽取器

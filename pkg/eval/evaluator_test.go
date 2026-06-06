@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ragtool/rag/pkg/config"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/config"
 )
 
 // TestEvalResultString 验证 String() 输出格式

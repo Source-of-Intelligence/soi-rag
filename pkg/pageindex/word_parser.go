@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/ragtool/rag/pkg/models"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 )
 
 // WordParser Word文档解析器

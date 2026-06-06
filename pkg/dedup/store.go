@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 	"github.com/google/uuid"
-	"github.com/ragtool/rag/pkg/models"
 )
 
 // DedupStore 去重存储接口

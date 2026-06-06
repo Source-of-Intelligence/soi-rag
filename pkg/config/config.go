@@ -11,8 +11,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/ragtool/rag/pkg/llm"
-	"github.com/ragtool/rag/pkg/rag"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/llm"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/rag"
 )
 
 // validModelNamePattern 验证模型名称格式（允许字母、数字、点、冒号、连字符、下划线）

@@ -6,9 +6,9 @@ import (
 	"math"
 	"strings"
 
-	"github.com/ragtool/rag/pkg/config"
-	"github.com/ragtool/rag/pkg/models"
-	"github.com/ragtool/rag/pkg/rag"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/config"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/rag"
 )
 
 // Evaluator 检索质量评估器

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
-	"github.com/ragtool/rag/pkg/models"
 )
 
 // PGStore PostgreSQL向量存储（使用pgvector扩展）

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ragtool/rag/pkg/models"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 )
 
 // SQLiteFTSIndex 使用 SQLite FTS5 全文搜索虚拟表实现倒排索引

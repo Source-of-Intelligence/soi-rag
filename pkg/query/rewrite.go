@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ragtool/rag/pkg/llm"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/llm"
 )
 
 // QueryRewriter 查询改写器接口

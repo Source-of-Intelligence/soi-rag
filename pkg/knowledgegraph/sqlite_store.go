@@ -11,8 +11,8 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 	"github.com/google/uuid"
-	"github.com/ragtool/rag/pkg/models"
 )
 
 // SQLiteGraphStore SQLite图存储实现

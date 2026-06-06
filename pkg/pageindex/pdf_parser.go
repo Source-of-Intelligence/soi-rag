@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 	"github.com/ledongthuc/pdf"
-	"github.com/ragtool/rag/pkg/models"
 )
 
 // PDFParser PDF文档解析器

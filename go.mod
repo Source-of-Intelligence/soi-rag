@@ -1,4 +1,4 @@
-module github.com/ragtool/rag
+module github.com/Source-of-Intelligence/soi-rag
 
 go 1.25.0
 

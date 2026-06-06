@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/ragtool/rag/pkg/models"
 )
 
 // PGGraphStore PostgreSQL图存储实现

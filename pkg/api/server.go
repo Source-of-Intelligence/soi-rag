@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ragtool/rag/pkg/rag"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/rag"
 )
 
 // Server HTTP API服务器

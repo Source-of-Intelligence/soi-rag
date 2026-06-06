@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ragtool/rag/pkg/rag"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/rag"
 )
 
 func main() {
