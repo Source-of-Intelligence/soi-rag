@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/ragtool/rag/pkg/api"
-	"github.com/ragtool/rag/pkg/config"
-	"github.com/ragtool/rag/pkg/rag"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/api"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/config"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/rag"
 )
 
 func main() {

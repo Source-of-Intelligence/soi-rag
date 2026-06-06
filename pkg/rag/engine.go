@@ -14,16 +14,16 @@ import (
 
 	_ "github.com/lib/pq"
 
-	"github.com/ragtool/rag/pkg/cache"
-	"github.com/ragtool/rag/pkg/dedup"
-	"github.com/ragtool/rag/pkg/hybrid"
-	"github.com/ragtool/rag/pkg/keyword"
-	"github.com/ragtool/rag/pkg/knowledgegraph"
-	"github.com/ragtool/rag/pkg/llm"
-	"github.com/ragtool/rag/pkg/models"
-	"github.com/ragtool/rag/pkg/pageindex"
-	"github.com/ragtool/rag/pkg/rerank"
-	"github.com/ragtool/rag/pkg/vector"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/cache"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/dedup"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/hybrid"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/keyword"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/knowledgegraph"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/llm"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/models"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/pageindex"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/rerank"
+	"github.com/Source-of-Intelligence/soi-rag/pkg/vector"
 )
 
 // StorageType 存储类型
