@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/ragtool/rag/pkg/rag"
@@ -376,7 +377,7 @@ func (w *DocumentWatcher) isAllowedExt(ext string) bool {
 
 // nanoTime 获取当前纳秒时间戳
 func nanoTime() int64 {
-	return int64(0) // 简化实现，实际可使用 time.Now().UnixNano()
+	return time.Now().UnixNano()
 }
 
 // AddDirectory 添加监控目录

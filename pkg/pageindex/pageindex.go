@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 	"time"
 
@@ -111,6 +112,7 @@ func (p *pageIndex) AddDocument(ctx context.Context, doc *models.Document, conte
 		parser, err := p.parserManager.GetParser(doc.DocType)
 		if err != nil {
 			// 使用文本解析器作为后备
+			log.Printf("[WARN] 未找到文档类型 %q 的解析器，回退到文本解析器 (source=%s)", doc.DocType, doc.Source)
 			parser = NewTextParser()
 		}
 

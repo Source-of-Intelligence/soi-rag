@@ -5,8 +5,11 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"sync"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -33,7 +36,10 @@ const (
 )
 
 // Engine RAG引擎
+// 注意: Engine 的 setter 方法（SetLLM、SetEmbedder 等）非线程安全，
+// 应在引擎启动前完成配置，或由调用方自行加锁。
 type Engine struct {
+	mu               sync.RWMutex // 保护 llm、reranker、queryCache 等可变字段
 	pageIndex        pageindex.PageIndex
 	vectorRetriever  *vector.VectorRetriever
 	keywordRetriever *keyword.KeywordRetriever
@@ -277,21 +283,29 @@ func NewEngineWithMemory() (*Engine, error) {
 
 // SetEmbedder 设置向量嵌入器（替换默认的 MockEmbedder）
 func (e *Engine) SetEmbedder(embedder vector.Embedder) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.vectorRetriever.SetEmbedder(embedder)
 }
 
 // SetVectorStore 设置向量存储
 func (e *Engine) SetVectorStore(store vector.VectorStore) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.vectorRetriever.SetStore(store)
 }
 
 // SetReranker 设置重排序器
 func (e *Engine) SetReranker(r rerank.Reranker) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.reranker = r
 }
 
 // SetKeywordTokenizer 设置关键词分词器
 func (e *Engine) SetKeywordTokenizer(tokenizer keyword.Tokenizer) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.keywordRetriever.SetTokenizer(tokenizer)
 }
 
@@ -465,16 +479,15 @@ func (e *Engine) AddDocumentWithDedup(ctx context.Context, doc *models.Document)
 		return nil, fmt.Errorf("索引关键词失败: %w", err)
 	}
 
-	// 构建知识图谱
+	// 构建知识图谱（非致命错误，记录日志但不阻止主流程）
 	if err = e.knowledgeGraph.BuildFromDocument(ctx, doc.ID, chunks); err != nil {
-		fmt.Printf("构建知识图谱失败: %v\n", err)
+		log.Printf("[WARN] 构建知识图谱失败 (docID=%s): %v", doc.ID, err)
 	}
 
-	// 添加到去重存储
+	// 添加到去重存储（非致命错误，文档已索引到PageIndex）
 	if e.config.UseDedup {
 		if _, err = e.dedupService.AddDocumentWithDedup(ctx, doc); err != nil {
-			// 去重索引失败不阻止主流程（文档已索引到PageIndex）
-			fmt.Printf("更新去重索引失败: %v\n", err)
+			log.Printf("[WARN] 更新去重索引失败 (docID=%s): %v", doc.ID, err)
 		}
 	}
 
@@ -550,25 +563,27 @@ func (e *Engine) Search(ctx context.Context, query string, opts models.SearchOpt
 	return result, nil
 }
 
-// buildCacheKey 构建缓存键
+// buildCacheKey 构建缓存键（使用 JSON 序列化确保唯一性）
 func (e *Engine) buildCacheKey(query string, opts models.SearchOptions) string {
-	// 使用SHA256生成唯一键
 	h := sha256.New()
 	h.Write([]byte(query))
-	h.Write([]byte(fmt.Sprintf("%d", opts.TopK)))
-	if opts.ScoreThreshold > 0 {
-		h.Write([]byte(fmt.Sprintf("%.4f", opts.ScoreThreshold)))
-	}
+	// 使用 JSON 序列化 SearchOptions 以避免不同对象产生相同字符串的问题
+	optsData, _ := json.Marshal(opts)
+	h.Write(optsData)
 	return hex.EncodeToString(h.Sum(nil))
 }
 
 // SetCache 设置查询缓存
 func (e *Engine) SetCache(c cache.Cache) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.queryCache = c
 }
 
 // GetCache 获取查询缓存
 func (e *Engine) GetCache() cache.Cache {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	return e.queryCache
 }
 
@@ -643,7 +658,7 @@ func (e *Engine) DeleteDocument(ctx context.Context, docID string) error {
 
 	if e.config.UseDedup {
 		if err := e.dedupService.DeleteDocument(ctx, docID); err != nil {
-			fmt.Printf("删除去重索引失败: %v\n", err)
+			log.Printf("[WARN] 删除去重索引失败 (docID=%s): %v", docID, err)
 		}
 	}
 
@@ -750,22 +765,30 @@ func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResponse, 
 
 // SetDedupEnabled 设置是否启用去重
 func (e *Engine) SetDedupEnabled(enabled bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.config.UseDedup = enabled
 	e.dedupService.SetEnabled(enabled)
 }
 
 // IsDedupEnabled 是否启用去重
 func (e *Engine) IsDedupEnabled() bool {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	return e.config.UseDedup
 }
 
 // SetLLM 设置LLM生成器
 func (e *Engine) SetLLM(l llm.LLM) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.llm = l
 }
 
 // SetPromptTemplate 设置提示模板
 func (e *Engine) SetPromptTemplate(tpl *llm.PromptTemplate) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.promptTpl = tpl
 }
 

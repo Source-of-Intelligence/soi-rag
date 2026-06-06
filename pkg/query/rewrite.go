@@ -157,19 +157,26 @@ func (r *CompositeRewriter) AddRewriter(rw QueryRewriter) {
 // Rewrite 改写查询（依次应用所有改写器）
 func (r *CompositeRewriter) Rewrite(ctx context.Context, query string) ([]string, error) {
 	queries := []string{query}
+	var errs []string
 
 	for _, rw := range r.rewriters {
 		var newQueries []string
 		for _, q := range queries {
 			rewritten, err := rw.Rewrite(ctx, q)
 			if err != nil {
-				continue // 忽略错误，继续处理
+				errs = append(errs, fmt.Sprintf("改写器 %s 错误: %v", rw.Name(), err))
+				newQueries = append(newQueries, q) // 保留原始查询
+				continue
 			}
 			newQueries = append(newQueries, rewritten...)
 		}
 		if len(newQueries) > 0 {
 			queries = newQueries
 		}
+	}
+
+	if len(errs) > 0 {
+		return queries, fmt.Errorf("部分改写器失败: %s", strings.Join(errs, "; "))
 	}
 
 	return queries, nil

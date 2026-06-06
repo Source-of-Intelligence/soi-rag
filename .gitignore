@@ -1,5 +1,79 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/dist/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.out
+coverage.html
+
+# Dependency directories
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 rag.db
+
+# Config files (user-specific)
 config.yaml
-/testdata/
-/rag_test/
-/.idea/
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+*.o
+*.a
+*.so
+
+# Binary outputs
+rag
+rag-server
+
+# Test data (keep in repo but ignore generated)
+/testdata/*.tmp
+/testdata/*.bak
+
+# Go workspace file
+go.work
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Security scan results
+security.sarif
+
+# Release artifacts
+dist/
+release/
+
+# Profiling data
+*.prof
+*.pprof

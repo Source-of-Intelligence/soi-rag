@@ -9,18 +9,28 @@ import (
 	"github.com/ragtool/rag/pkg/models"
 )
 
+// 重排序分数权重常量
+const (
+	// rerankOriginalWeight 原始检索分数在重排序中的权重
+	rerankOriginalWeight = 0.3
+	// rerankMatchWeight 查询匹配分数在重排序中的权重
+	rerankMatchWeight = 0.7
+)
+
 // Reranker 重排序器接口
 type Reranker interface {
 	Rerank(ctx context.Context, query string, candidates []*models.RetrievalResult, topN int) ([]*models.RetrievalResult, error)
 }
 
-// CrossEncoderReranker 交叉编码器重排序器
+// CrossEncoderReranker 基于词匹配的启发式重排序器（简化版）
+// 注意: 这不是真正的交叉编码器实现。真正的交叉编码器需要预训练模型（如 cross-encoder/ms-marco）。
+// 本实现使用查询词匹配度作为重排序依据，适用于不需要额外模型依赖的场景。
+// 如需更强的重排序效果，建议集成专门的交叉编码器模型。
 type CrossEncoderReranker struct {
-	// 这里可以集成真实的交叉编码器模型
-	// 简化版使用简单的启发式方法
+	// 预留：未来可集成真实的交叉编码器模型
 }
 
-// NewCrossEncoderReranker 创建交叉编码器重排序器
+// NewCrossEncoderReranker 创建启发式重排序器
 func NewCrossEncoderReranker() *CrossEncoderReranker {
 	return &CrossEncoderReranker{}
 }
@@ -40,7 +50,7 @@ func (r *CrossEncoderReranker) Rerank(ctx context.Context, query string, candida
 		matchScore := calculateMatchScore(queryTerms, contentTerms)
 
 		// 结合原始分数和匹配分数
-		candidate.RerankScore = candidate.Score*0.3 + matchScore*0.7
+		candidate.RerankScore = candidate.Score*rerankOriginalWeight + matchScore*rerankMatchWeight
 	}
 
 	// 按重排序分数排序

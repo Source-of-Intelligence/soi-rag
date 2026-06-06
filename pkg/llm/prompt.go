@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"sync"
 	"text/template"
 
 	"github.com/ragtool/rag/pkg/models"
@@ -15,6 +16,14 @@ type PromptTemplate struct {
 	ContextFormat  string // 检索结果格式化模板
 	QuestionFormat string // 问题格式化模板
 	NoContextMsg   string // 无上下文时的提示
+
+	// 缓存解析后的模板，避免每次重新解析
+	ctxTmplOnce      sync.Once
+	ctxTmpl          *template.Template
+	ctxTmplErr       error
+	questionTmplOnce sync.Once
+	questionTmpl     *template.Template
+	questionTmplErr  error
 }
 
 // DefaultRAGPrompt 默认RAG提示模板
@@ -77,18 +86,25 @@ func (t *PromptTemplate) BuildPrompt(question string, contexts []*models.Retriev
 	return buf.String()
 }
 
+// initTemplates 初始化并缓存解析后的模板
+func (t *PromptTemplate) initTemplates() {
+	t.ctxTmplOnce.Do(func() {
+		t.ctxTmpl, t.ctxTmplErr = template.New("context").Parse(t.ContextFormat)
+	})
+	t.questionTmplOnce.Do(func() {
+		t.questionTmpl, t.questionTmplErr = template.New("question").Parse(t.QuestionFormat)
+	})
+}
+
 // BuildPromptWithTemplate 使用模板引擎构建提示
 func (t *PromptTemplate) BuildPromptWithTemplate(question string, contexts []*models.RetrievalResult) (string, error) {
-	// 解析上下文格式模板
-	ctxTmpl, err := template.New("context").Parse(t.ContextFormat)
-	if err != nil {
-		return "", fmt.Errorf("解析上下文模板失败: %w", err)
+	// 初始化并缓存模板
+	t.initTemplates()
+	if t.ctxTmplErr != nil {
+		return "", fmt.Errorf("解析上下文模板失败: %w", t.ctxTmplErr)
 	}
-
-	// 解析问题格式模板
-	questionTmpl, err := template.New("question").Parse(t.QuestionFormat)
-	if err != nil {
-		return "", fmt.Errorf("解析问题模板失败: %w", err)
+	if t.questionTmplErr != nil {
+		return "", fmt.Errorf("解析问题模板失败: %w", t.questionTmplErr)
 	}
 
 	var buf bytes.Buffer
@@ -109,7 +125,7 @@ func (t *PromptTemplate) BuildPromptWithTemplate(question string, contexts []*mo
 			}
 
 			var ctxBuf bytes.Buffer
-			if err := ctxTmpl.Execute(&ctxBuf, item); err != nil {
+			if err := t.ctxTmpl.Execute(&ctxBuf, item); err != nil {
 				return "", fmt.Errorf("执行上下文模板失败: %w", err)
 			}
 			buf.WriteString(ctxBuf.String())
@@ -120,7 +136,7 @@ func (t *PromptTemplate) BuildPromptWithTemplate(question string, contexts []*mo
 	// 问题
 	buf.WriteString("=== 问题 ===\n")
 	var questionBuf bytes.Buffer
-	if err := questionTmpl.Execute(&questionBuf, map[string]string{"Question": question}); err != nil {
+	if err := t.questionTmpl.Execute(&questionBuf, map[string]string{"Question": question}); err != nil {
 		return "", fmt.Errorf("执行问题模板失败: %w", err)
 	}
 	buf.WriteString(questionBuf.String())

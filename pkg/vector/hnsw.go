@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/ragtool/rag/pkg/models"
@@ -232,7 +233,7 @@ func NewHNSWStore(config HNSWConfig) *HNSWStore {
 	return &HNSWStore{
 		config: config,
 		nodes:  make(map[string]*node),
-		rand:   rand.New(rand.NewSource(42)), // 固定种子以保证可重复性
+		rand:   rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 

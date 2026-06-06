@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -14,12 +15,17 @@ import (
 	"github.com/ragtool/rag/pkg/rag"
 )
 
+// validModelNamePattern 验证模型名称格式（允许字母、数字、点、冒号、连字符、下划线）
+var validModelNamePattern = regexp.MustCompile(`^[a-zA-Z0-9._:\-]+$`)
+
 // FileConfig 完整的配置文件结构
 type FileConfig struct {
-	Engine  EngineConfig  `yaml:"engine"`
-	LLM     LLMConfig     `yaml:"llm"`
-	Storage StorageConfig `yaml:"storage"`
-	API     APIConfig     `yaml:"api"`
+	Engine    EngineConfig     `yaml:"engine"`
+	LLM       LLMConfig        `yaml:"llm"`
+	Storage   StorageConfig    `yaml:"storage"`
+	API       APIConfig        `yaml:"api"`
+	Eval      EvalConfig       `yaml:"eval,omitempty"`      // 检索质量评估配置
+	Threshold QualityThreshold `yaml:"threshold,omitempty"` // 质量检验阈值
 }
 
 // EngineConfig RAG引擎配置
@@ -74,6 +80,24 @@ type APIConfig struct {
 	Port int    `yaml:"port"` // 监听端口
 }
 
+// EvalConfig 检索质量评估配置
+type EvalConfig struct {
+	Enabled   bool    `yaml:"enabled"`    // 是否启用评估
+	Ks        []int   `yaml:"ks"`         // 评估K值列表，如 [1, 5, 10, 20]
+	MinRecall float64 `yaml:"min_recall"` // 最低Recall要求
+}
+
+// QualityThreshold 质量检验阈值配置
+type QualityThreshold struct {
+	MinRecallAt1    float64 `yaml:"min_recall_at_1"`    // Recall@1 最低阈值
+	MinRecallAt5    float64 `yaml:"min_recall_at_5"`    // Recall@5 最低阈值
+	MinRecallAt10   float64 `yaml:"min_recall_at_10"`   // Recall@10 最低阈值
+	MinPrecisionAt5 float64 `yaml:"min_precision_at_5"` // Precision@5 最低阈值
+	MinMRR          float64 `yaml:"min_mrr"`            // MRR 最低阈值
+	MinNDCGAt10     float64 `yaml:"min_ndcg_at_10"`     // NDCG@10 最低阈值
+	MinMAP          float64 `yaml:"min_map"`            // MAP 最低阈值
+}
+
 // DefaultFileConfig 返回默认配置
 func DefaultFileConfig() *FileConfig {
 	return &FileConfig{
@@ -107,6 +131,20 @@ func DefaultFileConfig() *FileConfig {
 		API: APIConfig{
 			Host: "0.0.0.0",
 			Port: 8080,
+		},
+		Eval: EvalConfig{
+			Enabled:   false,
+			Ks:        []int{1, 5, 10, 20},
+			MinRecall: 0.0,
+		},
+		Threshold: QualityThreshold{
+			MinRecallAt1:    0.3,
+			MinRecallAt5:    0.5,
+			MinRecallAt10:   0.7,
+			MinPrecisionAt5: 0.4,
+			MinMRR:          0.4,
+			MinNDCGAt10:     0.5,
+			MinMAP:          0.4,
 		},
 	}
 }
@@ -359,6 +397,42 @@ func (c *FileConfig) Validate() error {
 	// 验证LLM配置
 	if c.LLM.Provider == "openai" && c.LLM.APIKey == "" {
 		return fmt.Errorf("OpenAI配置缺少api_key")
+	}
+
+	// 验证LLM Provider
+	validProviders := map[string]bool{"openai": true, "ollama": true, "mock": true}
+	if !validProviders[strings.ToLower(c.LLM.Provider)] {
+		return fmt.Errorf("不支持的LLM provider: %s (支持: openai, ollama, mock)", c.LLM.Provider)
+	}
+
+	// 验证模型名称格式
+	if c.LLM.Model != "" && !validModelNamePattern.MatchString(c.LLM.Model) {
+		return fmt.Errorf("模型名称格式无效: %q (仅允许字母、数字、点、冒号、连字符、下划线)", c.LLM.Model)
+	}
+
+	// 验证引擎参数
+	if c.Engine.ChunkSize < 0 {
+		return fmt.Errorf("chunk_size 不能为负数")
+	}
+	if c.Engine.ChunkOverlap < 0 {
+		return fmt.Errorf("chunk_overlap 不能为负数")
+	}
+	if c.Engine.ChunkOverlap >= c.Engine.ChunkSize && c.Engine.ChunkSize > 0 {
+		return fmt.Errorf("chunk_overlap (%d) 不能大于等于 chunk_size (%d)", c.Engine.ChunkOverlap, c.Engine.ChunkSize)
+	}
+	if c.Engine.TopK < 0 {
+		return fmt.Errorf("top_k 不能为负数")
+	}
+
+	// 验证存储类型
+	validStorageTypes := map[string]bool{"memory": true, "sqlite": true, "postgres": true, "postgresql": true}
+	if !validStorageTypes[strings.ToLower(c.Storage.Type)] {
+		return fmt.Errorf("不支持的存储类型: %s (支持: memory, sqlite, postgres)", c.Storage.Type)
+	}
+
+	// 验证API端口
+	if c.API.Port < 0 || c.API.Port > 65535 {
+		return fmt.Errorf("API端口无效: %d (范围: 0-65535)", c.API.Port)
 	}
 
 	return nil

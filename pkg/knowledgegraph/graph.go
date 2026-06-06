@@ -487,15 +487,15 @@ func (e *RuleBasedExtractor) extractEntities(text string) []*models.Entity {
 	runes := []rune(text)
 	for i := 0; i < len(runes); i++ {
 		// 检查是否是连续2-4个汉字且前后有分隔
-		if i > 0 && i+4 <= len(runes) {
+		if i+2 <= len(runes) { // 至少需要2个字符
 			for length := 2; length <= 4; length++ {
 				if i+length > len(runes) {
 					break
 				}
 				segment := string(runes[i : i+length])
 				// 检查前后是否是非汉字（确保是独立词）
-				prevIsHan := i > 0 && isChinese(rune(text[i-1]))
-				nextIsHan := i+length < len(runes) && isChinese(rune(text[i+length]))
+				prevIsHan := i > 0 && isChinese(runes[i-1])
+				nextIsHan := i+length < len(runes) && isChinese(runes[i+length])
 
 				// 只取边界处的词（前后至少一侧不是汉字）
 				if (!prevIsHan || !nextIsHan) && !seen[strings.ToLower(segment)] {

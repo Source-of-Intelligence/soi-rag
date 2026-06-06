@@ -166,6 +166,22 @@ storage:
 api:
   host: 0.0.0.0
   port: 8080
+
+# 检索质量评估配置（可选）
+eval:
+  enabled: true
+  ks: [1, 5, 10, 20]
+  min_recall: 0.0
+
+# 质量检验阈值（可选）
+threshold:
+  min_recall_at_1: 0.3
+  min_recall_at_5: 0.5
+  min_recall_at_10: 0.7
+  min_precision_at_5: 0.4
+  min_mrr: 0.4
+  min_ndcg_at_10: 0.5
+  min_map: 0.4
 ```
 
 通过代码加载配置：
@@ -286,6 +302,46 @@ rag/
 - [02-module-design.md](docs/02-module-design.md) - 模块详细设计
 - [03-architecture.md](docs/03-architecture.md) - 整体架构设计
 - [04-features-design.md](docs/04-features-design.md) - 扩展特性设计
+
+### 质量检验
+
+```go
+// 执行评估
+result := evaluator.Evaluate(ctx, engine, testQueries)
+
+// 质量检验（对比阈值）
+check := result.CheckQuality(&config.QualityThreshold{
+    MinRecallAt5: 0.5,
+    MinMRR: 0.4,
+})
+
+if check.Passed {
+    fmt.Println("质量检验通过")
+} else {
+    for _, w := range check.Warnings {
+        fmt.Println("警告:", w)
+    }
+}
+```
+
+### 使用配置文件的阈值
+
+```go
+cfg := config.DefaultFileConfig()
+result := evaluator.Evaluate(ctx, engine, testQueries)
+check := result.CheckQualityWithConfig(cfg)
+fmt.Printf("综合得分: %.4f, 通过: %v\n", check.Score, check.Passed)
+```
+
+## 已知问题与修复
+
+| 问题 | 状态 | 说明 |
+|------|------|------|
+| HNSW 并发安全 | ✅ 已修复 | `Search` 中 `visited` map 加锁保护，使用线程安全随机数 |
+| BatchIndexer panic | ✅ 已修复 | `NewBatchIndexer` 改为返回 error |
+| 模板重复解析 | ✅ 已修复 | `PromptTemplate` 使用 `sync.Once` 缓存解析结果 |
+| 流式响应错误处理 | ✅ 已修复 | `AskStream` 中 `json.Marshal` 错误不再忽略 |
+| Evaluator String() | ✅ 已修复 | 使用 `strings.Builder` 替代字符串拼接 |
 
 ## 技术栈
 

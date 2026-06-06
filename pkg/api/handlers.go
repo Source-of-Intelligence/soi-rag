@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -10,6 +12,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/ragtool/rag/pkg/models"
 	"github.com/ragtool/rag/pkg/rag"
+)
+
+// API 请求超时常量
+const (
+	// defaultRequestTimeout 默认 API 请求超时时间
+	defaultRequestTimeout = 30 * time.Second
 )
 
 // Handlers 请求处理器集合
@@ -84,12 +92,27 @@ func (h *Handlers) Index(w http.ResponseWriter, r *http.Request) {
 	writeSuccess(w, info)
 }
 
-// HealthCheck 健康检查
+// HealthCheck 健康检查（包含依赖服务状态）
 func (h *Handlers) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	health := map[string]interface{}{
 		"status":    "healthy",
 		"timestamp": time.Now().Unix(),
 	}
+
+	// 检查引擎状态
+	if h.engine != nil {
+		stats := h.engine.GetStats()
+		health["storage_type"] = stats["storage_type"]
+		health["dedup_enabled"] = stats["dedup_enabled"]
+
+		// 检查 LLM 是否可用
+		if h.engine.GetLLM() != nil {
+			health["llm_status"] = "available"
+		} else {
+			health["llm_status"] = "not_configured"
+		}
+	}
+
 	writeSuccess(w, health)
 }
 
@@ -315,6 +338,10 @@ func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 设置请求超时
+	ctx, cancel := context.WithTimeout(r.Context(), defaultRequestTimeout)
+	defer cancel()
+
 	// 构建选项
 	var opts []rag.AskOption
 	if req.TopK > 0 {
@@ -326,7 +353,7 @@ func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 执行问答
-	result, err := h.engine.Ask(r.Context(), req.Question, opts...)
+	result, err := h.engine.Ask(ctx, req.Question, opts...)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "问答失败: "+err.Error())
 		return
@@ -382,8 +409,14 @@ func (h *Handlers) AskStream(w http.ResponseWriter, r *http.Request) {
 	// 流式生成
 	ctx := r.Context()
 	_, err := h.engine.AskStream(ctx, req.Question, func(chunk string) {
-		data, _ := json.Marshal(map[string]string{"content": chunk})
-		fmt.Fprintf(w, "data: %s\n\n", data)
+		data, marshalErr := json.Marshal(map[string]string{"content": chunk})
+		if marshalErr != nil {
+			// 序列化失败时发送错误事件
+			errData, _ := json.Marshal(map[string]string{"error": "marshal failed: " + marshalErr.Error()})
+			fmt.Fprintf(w, "data: %s\n\n", errData)
+		} else {
+			fmt.Fprintf(w, "data: %s\n\n", data)
+		}
 		flusher.Flush()
 	}, opts...)
 

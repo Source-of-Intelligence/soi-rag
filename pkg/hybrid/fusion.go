@@ -77,8 +77,9 @@ func (f *RRFFusion) Fuse(results [][]*models.RetrievalResult, topK int) []*model
 }
 
 // WeightedFusion 加权融合策略
+// Weights 的 key 应与检索策略名称对应: "vector", "keyword", "graph"
 type WeightedFusion struct {
-	Weights map[string]float64 // 各检索器的权重
+	Weights map[string]float64 // 各检索器的权重，key 为策略名称（vector/keyword/graph）
 }
 
 // NewWeightedFusion 创建加权融合策略
@@ -86,7 +87,13 @@ func NewWeightedFusion(weights map[string]float64) *WeightedFusion {
 	return &WeightedFusion{Weights: weights}
 }
 
-// Fuse 融合结果
+// WeightedFuseResult 加权融合的输入，包含策略名称与对应结果
+type WeightedFuseResult struct {
+	Strategy string                    // 策略名称: "vector", "keyword", "graph"
+	Results  []*models.RetrievalResult // 该策略的检索结果
+}
+
+// Fuse 融合结果（使用策略名称映射权重）
 func (f *WeightedFusion) Fuse(results [][]*models.RetrievalResult, topK int) []*models.RetrievalResult {
 	// 归一化权重
 	totalWeight := 0.0
@@ -101,18 +108,19 @@ func (f *WeightedFusion) Fuse(results [][]*models.RetrievalResult, topK int) []*
 	weightedScores := make(map[string]float64)
 	docInfo := make(map[string]*models.RetrievalResult)
 
+	// 默认权重：当未配置某策略时使用均等权重
+	defaultWeight := 1.0 / float64(len(results))
+
 	for i, resultList := range results {
-		weight := 1.0
+		// 按索引查找权重（保持向后兼容）
+		weight := defaultWeight
 		if len(f.Weights) > 0 {
-			// 按索引查找权重，未配置的检索器使用默认均等权重
-			weightKeys := make([]string, 0, len(f.Weights))
-			for k := range f.Weights {
-				weightKeys = append(weightKeys, k)
-			}
-			if i < len(weightKeys) {
-				weight = f.Weights[weightKeys[i]]
-			} else {
-				weight = 1.0 / float64(len(results))
+			// 尝试按策略名称查找: vector->0, keyword->1, graph->2
+			strategyNames := []string{"vector", "keyword", "graph"}
+			if i < len(strategyNames) {
+				if w, ok := f.Weights[strategyNames[i]]; ok {
+					weight = w / totalWeight
+				}
 			}
 		}
 

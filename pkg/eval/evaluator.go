@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 
+	"github.com/ragtool/rag/pkg/config"
 	"github.com/ragtool/rag/pkg/models"
 	"github.com/ragtool/rag/pkg/rag"
 )
@@ -129,6 +131,11 @@ func (e *Evaluator) Evaluate(ctx context.Context, dataset *EvalDataset, ks ...in
 	}
 
 	return result, nil
+}
+
+// GetErrors 返回评估过程中收集的错误
+func (r *EvalResult) GetErrors() []EvalError {
+	return r.Errors
 }
 
 // CalculateRecall 计算 Recall@K
@@ -282,33 +289,108 @@ func (r *EvalResult) ToMap() map[string]interface{} {
 	}
 }
 
+// QualityCheck 质量检验结果
+type QualityCheck struct {
+	Passed   bool            `json:"passed"`   // 是否通过检验
+	Score    float64         `json:"score"`    // 综合得分
+	Details  []QualityDetail `json:"details"`  // 各指标详情
+	Warnings []string        `json:"warnings"` // 警告信息
+}
+
+// QualityDetail 单个指标检验详情
+type QualityDetail struct {
+	Metric    string  `json:"metric"`    // 指标名称
+	Value     float64 `json:"value"`     // 实际值
+	Threshold float64 `json:"threshold"` // 阈值
+	Passed    bool    `json:"passed"`    // 是否通过
+}
+
+// CheckQuality 执行质量检验，对比评估结果与阈值配置
+func (r *EvalResult) CheckQuality(threshold *config.QualityThreshold) *QualityCheck {
+	if threshold == nil {
+		threshold = &config.QualityThreshold{
+			MinRecallAt1:    0.3,
+			MinRecallAt5:    0.5,
+			MinRecallAt10:   0.7,
+			MinPrecisionAt5: 0.4,
+			MinMRR:          0.4,
+			MinNDCGAt10:     0.5,
+			MinMAP:          0.4,
+		}
+	}
+
+	check := &QualityCheck{
+		Passed:  true,
+		Details: make([]QualityDetail, 0),
+	}
+
+	checks := []struct {
+		name      string
+		value     float64
+		threshold float64
+	}{
+		{"Recall@1", r.Recall[1], threshold.MinRecallAt1},
+		{"Recall@5", r.Recall[5], threshold.MinRecallAt5},
+		{"Recall@10", r.Recall[10], threshold.MinRecallAt10},
+		{"Precision@5", r.Precision[5], threshold.MinPrecisionAt5},
+		{"MRR", r.MRR, threshold.MinMRR},
+		{"NDCG@10", r.NDCG[10], threshold.MinNDCGAt10},
+		{"MAP", r.Map, threshold.MinMAP},
+	}
+
+	var totalScore float64
+	for _, c := range checks {
+		passed := c.value >= c.threshold
+		if !passed {
+			check.Passed = false
+			check.Warnings = append(check.Warnings,
+				fmt.Sprintf("%s: %.4f < %.4f (未达标)", c.name, c.value, c.threshold))
+		}
+		check.Details = append(check.Details, QualityDetail{
+			Metric:    c.name,
+			Value:     c.value,
+			Threshold: c.threshold,
+			Passed:    passed,
+		})
+		totalScore += c.value
+	}
+
+	check.Score = totalScore / float64(len(checks))
+	return check
+}
+
+// CheckQualityWithConfig 使用配置文件中的阈值进行质量检验
+func (r *EvalResult) CheckQualityWithConfig(cfg *config.FileConfig) *QualityCheck {
+	return r.CheckQuality(&cfg.Threshold)
+}
+
 // String 返回结果字符串
 func (r *EvalResult) String() string {
-	var sb string
-	sb = "=== 检索质量评估结果 ===\n\n"
+	var sb strings.Builder
+	sb.WriteString("=== 检索质量评估结果 ===\n\n")
 
-	sb += "Recall@K:\n"
+	sb.WriteString("Recall@K:\n")
 	for k, v := range r.Recall {
-		sb += fmt.Sprintf("  Recall@%d: %.4f\n", k, v)
+		sb.WriteString(fmt.Sprintf("  Recall@%d: %.4f\n", k, v))
 	}
 
-	sb += "\nPrecision@K:\n"
+	sb.WriteString("\nPrecision@K:\n")
 	for k, v := range r.Precision {
-		sb += fmt.Sprintf("  Precision@%d: %.4f\n", k, v)
+		sb.WriteString(fmt.Sprintf("  Precision@%d: %.4f\n", k, v))
 	}
 
-	sb += fmt.Sprintf("\nMRR: %.4f\n", r.MRR)
-	sb += fmt.Sprintf("MAP: %.4f\n", r.Map)
+	sb.WriteString(fmt.Sprintf("\nMRR: %.4f\n", r.MRR))
+	sb.WriteString(fmt.Sprintf("MAP: %.4f\n", r.Map))
 
-	sb += "\nNDCG@K:\n"
+	sb.WriteString("\nNDCG@K:\n")
 	for k, v := range r.NDCG {
-		sb += fmt.Sprintf("  NDCG@%d: %.4f\n", k, v)
+		sb.WriteString(fmt.Sprintf("  NDCG@%d: %.4f\n", k, v))
 	}
 
-	sb += fmt.Sprintf("\n总查询数: %d\n", r.Total)
+	sb.WriteString(fmt.Sprintf("\n总查询数: %d\n", r.Total))
 	if len(r.Errors) > 0 {
-		sb += fmt.Sprintf("错误数: %d\n", len(r.Errors))
+		sb.WriteString(fmt.Sprintf("错误数: %d\n", len(r.Errors)))
 	}
 
-	return sb
+	return sb.String()
 }

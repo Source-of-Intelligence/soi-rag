@@ -64,7 +64,7 @@ type BatchIndexer struct {
 }
 
 // NewBatchIndexer 创建批量索引器
-func NewBatchIndexer(engine PageIndex, workers, batchSize int) *BatchIndexer {
+func NewBatchIndexer(engine PageIndex, workers, batchSize int) (*BatchIndexer, error) {
 	if workers <= 0 {
 		workers = 4
 	}
@@ -78,9 +78,7 @@ func NewBatchIndexer(engine PageIndex, workers, batchSize int) *BatchIndexer {
 	case *pageIndex:
 		pi = e
 	default:
-		// 如果不是 pageIndex 类型，创建一个适配器
-		// 这里假设传入的就是 pageIndex
-		panic("engine must be *pageIndex type")
+		return nil, fmt.Errorf("engine must be *pageIndex type, got %T", engine)
 	}
 
 	return &BatchIndexer{
@@ -90,11 +88,11 @@ func NewBatchIndexer(engine PageIndex, workers, batchSize int) *BatchIndexer {
 			BatchSize:   batchSize,
 			StopOnError: false,
 		},
-	}
+	}, nil
 }
 
 // NewBatchIndexerWithConfig 使用配置创建批量索引器
-func NewBatchIndexerWithConfig(engine PageIndex, config *BatchConfig) *BatchIndexer {
+func NewBatchIndexerWithConfig(engine PageIndex, config *BatchConfig) (*BatchIndexer, error) {
 	if config == nil {
 		config = DefaultBatchConfig()
 	}
@@ -110,13 +108,13 @@ func NewBatchIndexerWithConfig(engine PageIndex, config *BatchConfig) *BatchInde
 	case *pageIndex:
 		pi = e
 	default:
-		panic("engine must be *pageIndex type")
+		return nil, fmt.Errorf("engine must be *pageIndex type, got %T", engine)
 	}
 
 	return &BatchIndexer{
 		engine: pi,
 		config: config,
-	}
+	}, nil
 }
 
 // DocumentTask 文档索引任务
