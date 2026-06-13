@@ -33,18 +33,18 @@
 │  │  │   PageIndex     │ │  Knowledge Graph │ │  Vector Search  │           │   │
 │  │  │   Module        │ │     Module       │ │     Module      │           │   │
 │  │  │                 │ │                  │ │                 │           │   │
-│  │  │ • Doc Parser    │ │ • LLM Extractor  │ │ • HNSW Index    │           │   │
-│  │  │ • Chunker       │ │ • Graph Builder  │ │ • ANN Search    │           │   │
-│  │  │ • Index Manager │ │ • Graph Query    │ │ • Embedder      │           │   │
-│  │  └─────────────────┘ └─────────────────┘ └─────────────────┘           │   │
-│  │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐           │   │
-│  │  │ Keyword Search  │ │ Hybrid Search   │ │    Reranker     │           │   │
-│  │  │     Module      │ │     Module      │ │     Module      │           │   │
-│  │  │                 │ │                 │ │                 │           │   │
-│  │  │ • BM25 Scoring  │ │ • Multi-Recall  │ │ • Heuristic     │           │   │
-│  │  │ • Inverted Index│ │ • RRF Fusion    │ │ • Diversity     │           │   │
-│  │  │ • Query Parser  │ │ • Query Router  │ │ • Rerank Pipeline│          │   │
-│  │  └─────────────────┘ └─────────────────┘ └─────────────────┘           │   │
+│  │  │ ┌─────────────┐ │ │ • LLM Extractor  │ │ • HNSW Index    │           │   │
+│  │  │ │ FileParser  │ │ │ • Graph Builder  │ │ • ANN Search    │           │   │
+│  │  │ │   Layer     │ │ │ • Graph Query    │ │ • Embedder      │           │   │
+│  │  │ │ • PDF       │ │ │                  │ │                 │           │   │
+│  │  │ │ • DOCX      │ │ └─────────────────┘ └─────────────────┘           │   │
+│  │  │ │ • HTML      │ │ ┌─────────────────┐ ┌─────────────────┐           │   │
+│  │  │ │ • Markdown  │ │ │ Keyword Search  │ │ Hybrid Search   │ │ Reranker│   │
+│  │  │ │ • TXT/CSV   │ │ │     Module      │ │     Module      │ │ Module  │   │
+│  │  │ └─────────────┘ │ │ • BM25 Scoring  │ │ • Multi-Recall  │ │ • Cross│   │
+│  │  │ • Chunker       │ │ • Inverted Index│ │ • RRF Fusion    │ │ • Diversity│ │
+│  │  │ • Index Manager │ │ • Query Parser  │ │ • Query Router  │ │ • Pipeline││
+│  │  └─────────────────┘ └─────────────────┘ └─────────────────┘ └─────────┘  │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 │                                    │                                            │
 │                                    ▼                                            │
@@ -75,8 +75,43 @@
 |------|------|----------|
 | API Gateway | 统一入口，协议支持 | REST API (net/http), SSE 流式问答 |
 | Service Orchestration | 服务编排，查询处理 | Query Processor, Cache, Dedup Service |
-| Retrieval Engine | 检索能力实现 | 6大检索模块 |
+| Retrieval Engine | 检索能力实现 | 6大检索模块（含 File Parser 子层） |
+| **File Parser（子层）** | **文件 → 结构化文档** | **PDFParser, WordParser, HTMLParser, MarkdownParser, CSVParser, JSONParser, TextParser** |
 | Storage | 数据持久化 | SQLite（默认）/ PostgreSQL（可选）/ Memory（开发测试） |
+
+### 1.3 数据流：从文件到检索结果
+
+```
+  输入文件 (PDF/DOCX/HTML/MD/TXT...)
+         │
+         ▼
+  ┌─────────────────┐
+  │  FileParser     │   → 输出 document.Document（结构化）
+  │  (选择解析器)   │
+  └────────┬────────┘
+           ▼
+  ┌─────────────────┐
+  │  Chunker        │   → 按 Element/Section/Page 进行语义分块
+  └────────┬────────┘
+           ▼
+  ┌─────────────────┐
+  │  Embedder       │   → 生成向量嵌入
+  ├─────────────────┤
+  │  Keyword Indexer│   → 构建倒排索引 (BM25)
+  └────────┬────────┘
+           ▼
+  ┌─────────────────┐
+  │  Storage        │   → SQLite/PostgreSQL/Memory 持久化
+  └────────┬────────┘
+           ▼
+  ┌─────────────────┐
+  │  Hybrid Search  │   → RRF 融合多检索结果
+  ├─────────────────┤
+  │  Reranker       │   → 最终重排序
+  └────────┬────────┘
+           ▼
+    返回结果 (chunks + scores)
+```
 
 ---
 

@@ -9,6 +9,32 @@
 
 ## [Unreleased]
 
+### 新增 (Added)
+
+#### pkg/document/ - 通用文档数据模型（新模块）
+- **[P0] 通用 Document 数据模型**: 定义 `document.Document` 作为所有文件解析器的统一输出格式，取代仅存储纯文本的方式
+- **[P0] 内容元素体系**: 定义 `Element` 接口与 7 种具体元素类型：
+  - `Paragraph`（段落）、`Heading`（标题 H1-H6）、`Table`（表格）
+  - `List`（列表）、`Image`（图片）、`CodeBlock`（代码块）、`Separator`（分隔线）
+- **[P1] 结构化组织**: 支持按页（`Page`，PDF/DOCX）、按章节（`Section`，HTML/Markdown）、按元素（顶层内容）三种组织方式
+- **[P1] 便捷方法**: `doc.RawText()`（提取全文纯文本，用于向量/关键词检索）、`doc.PrettyPrint(indent)`（格式化打印文档结构，调试用）
+- **[P1] 元数据与统计**: `PageCount`、`ParaCount`、`TableCount`、`ImageCount`、`Metadata` map 供各解析器填充额外信息
+
+#### pkg/fileparser/ - 文件解析器集合（新模块）
+- **[P0] Parser 接口与 ParserManager**: 定义统一 `Parser` 接口，`ParserManager` 按文件扩展名自动分发到对应解析器
+- **[P0] PDFParser**: 使用 `ledongthuc/pdf` 库，按页提取文本，启发式识别标题段落
+- **[P0] WordParser**: 解析 `.docx`（ZIP+XML），提取段落、标题、表格
+- **[P0] HTMLParser**: 基于正则匹配 HTML 块级标签（h1-h6、p、ul/ol、table、pre），提取结构化内容
+- **[P0] MarkdownParser**: 使用状态机解析 `#` 标题、代码块、列表项，自动构建章节嵌套树
+- **[P1] TextParser**: 按空行分段，处理纯文本文件
+- **[P1] CSVParser**: 使用 `encoding/csv`，首行为表头，其余为数据行，输出 `Table` 元素
+- **[P1] JSONParser**: 美化 JSON 后作为 `CodeBlock`（带语言标识）输出
+
+#### cmd/test/ - 文件解析诊断工具（新增）
+- **[P1] CLI 诊断工具**: 支持单文件或目录扫描，输出每个文件的结构化解析结果
+- 输出内容：基础信息（标题、类型、页数、段落数、字符数）、元数据、结构化内容（按页/章节/元素）、全文纯文本预览
+- 可用于验证 PDF / DOCX / HTML / Markdown / TXT / CSV / JSON 的解析效果
+
 ### 修复 (Bug Fixes)
 
 #### pkg/rag/engine.go - 核心引擎

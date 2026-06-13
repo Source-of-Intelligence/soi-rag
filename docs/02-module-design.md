@@ -137,6 +137,160 @@ type PageIndex interface {
 
 ---
 
+## 1a. Document 模块设计（新增）
+
+### 1a.1 概述
+`pkg/document` 定义了通用的结构化文档数据模型，是所有文件解析器的统一输出格式。它取代了原来在 `models.Document` 中只存储纯文本的方式，支持按页、章节、段落、表格、列表、代码块等语义元素组织内容。
+
+### 1a.2 数据模型
+
+```
+document.Document
+├── Title, Source, DocType          // 基础信息
+├── PageCount, ParaCount, TableCount // 统计信息
+├── Metadata                         // 扩展元数据
+├── Pages []*Page                    // 按页组织（PDF / DOCX）
+│   └── Elements []Element          //   Paragraph / Heading / Table...
+├── Sections []*Section              // 按章节组织（HTML / Markdown）
+│   ├── Level, Title                //   H1-H6
+│   ├── Elements []Element          //   章节内内容
+│   └── SubSections []*Section      //   嵌套子章节
+└── Elements []Element               // 顶层元素（无结构的纯文本）
+```
+
+### 1a.3 元素类型
+
+| 元素类型 | 说明 | 字段 |
+|---------|------|-----|
+| `Paragraph` | 普通段落 | `Text` |
+| `Heading` | 标题 | `Level (1-6)`, `Title` |
+| `Table` | 表格 | `Headers`, `Rows` |
+| `List` | 列表 | `Ordered`, `Items` |
+| `Image` | 图片 | `Alt`, `Src` |
+| `CodeBlock` | 代码块 | `Language`, `Code` |
+| `Separator` | 分隔线 | `Style` |
+
+所有元素实现 `Element` 接口：
+```go
+type Element interface {
+    Type() ElementType     // 元素类型
+    Text() string          // 纯文本表示（用于索引/检索）
+    String() string        // 人类可读字符串（用于调试）
+    IsEmpty() bool         // 是否为空
+}
+```
+
+### 1a.4 核心方法
+
+- `doc.RawText()` —— 提取整个文档的纯文本（用于向量索引与关键词检索）
+- `doc.PrettyPrint(indent)` —— 格式化打印文档结构（调试用）
+- `doc.IsEmpty()` —— 判断文档是否为空
+- `doc.AddPage / AddSection / AddElement` —— 构建文档结构
+
+---
+
+## 1b. FileParser 模块设计（新增）
+
+### 1b.1 概述
+`pkg/fileparser` 是一个独立的文件解析器集合。它接收任意支持格式的文件（PDF / DOCX / HTML / Markdown / TXT / CSV / JSON），输出一个统一的 `document.Document` 结构化数据对象。
+
+### 1b.2 架构
+
+```
+                      ParserManager
+                    (按扩展名分发)
+  ┌───────────────┬────────────────┬───────────────┐
+  ▼                ▼                ▼               ▼
+PDFParser     WordParser      HTMLParser     MarkdownParser
+  │                │                │               │
+  └────────────────┴────────────────┴───────────────┘
+                           │
+                           ▼
+               document.Document （统一输出格式）
+```
+
+### 1b.3 Parser 接口
+
+```go
+type Parser interface {
+    // 从 reader 解析为结构化文档
+    Parse(reader io.Reader, source string) (*document.Document, error)
+
+    // 解析器名称（调试/日志）
+    Name() string
+}
+```
+
+### 1b.4 ParserManager 管理器
+
+```go
+// 创建管理器（内置所有支持格式的解析器）
+pm := fileparser.NewManager()
+
+// 方式一：按路径解析（自动识别扩展名）
+doc, err := pm.ParseFromPath("/path/to/file.pdf")
+
+// 方式二：从 reader 解析（source 仅用于标题/错误信息）
+doc, err := pm.ParseByReader(reader, "report.docx")
+
+// 可选：直接获取某个特定解析器
+pdfParser := pm.GetParserByExtension(".pdf")
+```
+
+### 1b.5 各格式解析器实现
+
+| 解析器 | 文件类型 | 实现方式 | 输出结构 |
+|--------|---------|---------|---------|
+| `PDFParser` | `.pdf` | `ledongthuc/pdf` 提取每页文本，启发式识别标题 | Pages（按页） + Elements |
+| `WordParser` | `.docx` | ZIP 解压 → XML 解析 `<w:p>`, `<w:tbl>`, `<w:style>` | Elements + Heading |
+| `HTMLParser` | `.html` `.htm` | 正则匹配块级标签 `<h1-6>`, `<p>`, `<ul>`, `<table>` | Elements（Heading/Paragraph/List/Table） |
+| `MarkdownParser` | `.md` `.markdown` | 状态机解析 `#` 标题、代码块、列表 | Sections（嵌套结构） + Elements |
+| `TextParser` | `.txt` | 按空行分段 | Elements（Paragraph） |
+| `CSVParser` | `.csv` | `encoding/csv` 解析首行为表头 | Elements（Table） |
+| `JSONParser` | `.json` | 美化 JSON → CodeBlock | Elements（CodeBlock） |
+
+### 1b.6 与 PageIndex / RAG Engine 的集成方式
+
+1. **原始流程**（旧）：`文件 → pageindex.Parser → 纯文本 → Chunker → 索引/检索`
+2. **新流程**（推荐）：`文件 → fileparser → document.Document → 按 Element/Section/Page 分块 → 索引/检索`
+
+新流程可带来以下改进：
+- 保留文档的语义结构（标题层级、表格、列表）
+- 可按语义边界分块，避免 mid-sentence 切分
+- 标题可赋予更高的检索权重
+- 支持按表格/代码块等特殊结构进行检索增强
+
+---
+
+## 1c. 文件解析诊断工具（cmd/test）
+
+### 1c.1 用途
+提供一个 CLI 工具用于验证文件解析效果，支持单文件或批量扫描目录。
+
+### 1c.2 使用方式
+
+```bash
+# 方式一：解析单个文件
+go run ./cmd/test /path/to/document.pdf
+
+# 方式二：扫描目录（自动识别支持格式）
+go run ./cmd/test /path/to/folder
+
+# 方式三：编译后运行
+go build -o fileparser-test.exe ./cmd/test
+./fileparser-test.exe document.pdf document.docx
+```
+
+### 1c.3 输出内容
+
+每个文件输出以下信息：
+1. **基础信息**：标题、类型、页数、段落数、表格数、字符数
+2. **元数据**：各解析器填充的扩展字段（如 PDF 的 `empty_pages`）
+3. **结构化内容**：按页/章节/元素展示
+4. **全文纯文本预览**：验证提取的文本质量
+
+---
+
 ## 2. 知识图谱模块设计
 
 ### 2.1 概述
