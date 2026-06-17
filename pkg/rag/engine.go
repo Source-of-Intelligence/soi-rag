@@ -182,6 +182,16 @@ func (e *Engine) SetDocStore(store pageindex.Store) {
 	e.docStore = store
 }
 
+// Close 关闭引擎，释放资源
+func (e *Engine) Close() error {
+	if e.docStore != nil {
+		if closer, ok := e.docStore.(interface{ Close() error }); ok {
+			return closer.Close()
+		}
+	}
+	return nil
+}
+
 // SetDedupStore 替换去重存储
 func (e *Engine) SetDedupStore(store dedup.DedupStore) {
 	if e.dedup == nil {
@@ -203,6 +213,89 @@ func (e *Engine) GetStats() map[string]interface{} {
 		"top_k":          e.config.TopK,
 	}
 	return stats
+}
+
+// --- 便捷方法 ---
+
+// AddDocumentFromText 从文本添加文档
+func (e *Engine) AddDocumentFromText(ctx context.Context, title, content, source string) (*models.Document, error) {
+	doc := &models.Document{
+		Title:   title,
+		Content: content,
+		Source:  source,
+		Status:  models.DocStatusPending,
+		DocType: models.DocTypeText,
+	}
+	result, err := e.AddDocumentWithDedup(ctx, doc)
+	if err != nil {
+		return nil, err
+	}
+	return result.Document, nil
+}
+
+// Query 执行查询（兼容旧API）
+func (e *Engine) Query(ctx context.Context, req *QueryRequest) (*QueryResponse, error) {
+	opts := models.SearchOptions{TopK: req.TopK}
+
+	var result *models.SearchResult
+	var err error
+
+	retrievalType := strings.ToLower(req.RetrievalType)
+	switch retrievalType {
+	case "vector":
+		var results []*models.RetrievalResult
+		results, err = e.VectorSearch(ctx, req.Query, req.TopK)
+		if err == nil {
+			result = &models.SearchResult{Results: results, Total: len(results)}
+		}
+	case "keyword":
+		var kwResult *models.SearchResult
+		kwResult, err = e.KeywordSearch(ctx, req.Query, opts)
+		if err == nil && kwResult != nil {
+			result = kwResult
+		}
+	case "graph":
+		var results []*models.RetrievalResult
+		results, err = e.GraphSearch(ctx, req.Query, req.TopK)
+		if err == nil {
+			result = &models.SearchResult{Results: results, Total: len(results)}
+		}
+	default:
+		result, err = e.Search(ctx, req.Query, opts)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	var queryResults []*QueryResult
+	for _, r := range result.Results {
+		queryResults = append(queryResults, &QueryResult{
+			ID:         r.ID,
+			Content:    r.Content,
+			Source:     r.Source,
+			DocumentID: r.DocumentID,
+			Score:      r.Score,
+			Metadata:   r.Metadata,
+		})
+	}
+
+	answer := ""
+	if e.llm != nil {
+		contextStr := buildContextFromResults(result.Results)
+		prompt := buildPromptWithContext(req.Query, contextStr)
+		generated, genErr := e.llm.Generate(ctx, prompt)
+		if genErr == nil {
+			answer = generated
+		}
+	}
+
+	return &QueryResponse{
+		Query:   req.Query,
+		Answer:  answer,
+		Results: queryResults,
+		Total:   result.Total,
+	}, nil
 }
 
 // --- 文档管理 ---
